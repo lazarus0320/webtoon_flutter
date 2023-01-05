@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webtoon_flutter/screens/detail_screen.dart';
-
+import 'package:webtoon_flutter/animations/page_route_with_animation.dart';
 class Webtoon extends StatelessWidget {
   final String title, thumb, id;
 
@@ -16,13 +16,10 @@ class Webtoon extends StatelessWidget {
     return GestureDetector(
       // 동작을 감지하는 위젯
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                DetailScreen(title: title, thumb: thumb, id: id),
-          ),
-        ); // route : Stateless 위젯을 감싸서 스크린처럼 보이도록 함.
+        PageRouteWithAnimation pageRouteWithAnimation = PageRouteWithAnimation(DetailScreen(title: title, thumb: thumb, id: id));
+        Navigator.push( // 페이지 전환 애니메이션 느낌을 부여함
+          context, pageRouteWithAnimation.slideRitghtToLeft()
+        );// route : Stateless 위젯을 감싸서 스크린처럼 보이도록 함.
       },
       child: Column(children: [
         Container(
