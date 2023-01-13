@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/src/widgets/framework.dart';
 import 'package:flutter/src/widgets/container.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:webtoon_flutter/models/webtoon_detail_model.dart';
 import 'package:webtoon_flutter/models/webtoon_episode_model.dart';
 import 'package:webtoon_flutter/services/api_service.dart';
+
+import '../widgets/episode_widget.dart';
 
 class DetailScreen extends StatefulWidget {
   final String title, thumb, id;
@@ -24,6 +29,26 @@ class _DetailScreenState extends State<DetailScreen> {
   // 이 경우에는 바로 값을 할당하지 못해서 late로 선언만 해놓고 initState에서 값을 할당해주는 방식을 이용함.
   late Future<WebtoonDetailModel> webtoon; // late는 나중에 define하도록 해줌.
   late Future<List<WebtoonEpisodeModel>> episodes;
+  late SharedPreferences prefs;
+  bool isLiked = false;
+
+  Future initPrefs() async {
+    prefs = await SharedPreferences
+        .getInstance(); // 간단한 데이터를 저장하고 로드하는 기능을 구현하도록 도와주는 라이브러리
+    final likedToons =
+        prefs.getStringList('likedToons'); // 사용자가 좋아요를 누른 웹툰 id 목록
+    if (likedToons != null) {
+      // 사용자가 지금 보고 있는 webtoon의 ID가 likedToons 안에 있는지 확인
+      if (likedToons.contains(widget.id) == true) {
+        setState(() {
+          isLiked = true;
+        });
+      }
+    } else {
+      await prefs.setStringList(
+          'likedToons', []); // 최초 실행시 저장소에 아무것도 없을 것이므로 빈 리스트를 만든다.
+    }
+  }
 
   @override
   void initState() {
@@ -32,6 +57,22 @@ class _DetailScreenState extends State<DetailScreen> {
     super.initState();
     webtoon = ApiService.getToonById(widget.id);
     episodes = ApiService.getLatestEpisodesById(widget.id);
+    initPrefs();
+  }
+
+  onHeartTap() async {
+    final likedToons = prefs.getStringList('likedToons');
+    if (likedToons != null) {
+      if (isLiked) {
+        likedToons.remove(widget.id);
+      } else {
+        likedToons.add(widget.id);
+      }
+      await prefs.setStringList('likedToons', likedToons);
+      setState(() {
+        isLiked = !isLiked;
+      });
+    }
   }
 
   @override
@@ -42,6 +83,15 @@ class _DetailScreenState extends State<DetailScreen> {
         appBar: AppBar(
             centerTitle: true,
             // 가운데 정렬
+            actions: [
+              IconButton(
+                onPressed: onHeartTap,
+                icon: Icon(
+                  isLiked ? Icons.favorite : Icons.favorite_outline,
+                  color: Colors.red,
+                ),
+              )
+            ],
             elevation: 2,
             // 그림자
             foregroundColor: Colors.green,
@@ -62,13 +112,12 @@ class _DetailScreenState extends State<DetailScreen> {
                 fontWeight: FontWeight.w600,
               ),
             )),
-        body: SingleChildScrollView( // 하단 오버플로우 문제를 해결하기 위해 사용
+        body: SingleChildScrollView(
+            // 하단 오버플로우 문제를 해결하기 위해 사용
             child: Padding(
-              padding: const EdgeInsets.all(50),
-              child: Column(
-
-          children: [
-
+          padding: const EdgeInsets.all(50),
+          child: Column(
+            children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 // 수평방향으로 가운데 정렬
@@ -147,39 +196,14 @@ class _DetailScreenState extends State<DetailScreen> {
                       return Column(
                         children: [
                           for (var episode in snapshot.data!)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                color: Colors.green.shade400,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10, horizontal: 40),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                  Text(
-                                    episode.title,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: Colors.white,
-                                  ),
-                                ]),
-                              ),
-                            )
+                            Episode(episode: episode, webtoonId: widget.id)
                         ],
                       );
                     } // episodes 데이터가 있는 경우 렌더링하기. 개수가 적다면 Column을, 리스트의 개수를 모르면 ListView가 좋음.
                     return Container();
                   })
-          ],
-        ),
-            )));
+            ],
+          ),
+        )));
   }
 }
